@@ -136,7 +136,7 @@ export default function LoginPage() {
             </div>
             <div className="text-left">
               <h1 className="text-2xl font-bold text-foreground">AI Todo Manager</h1>
-              <p className="text-sm text-muted-foreground">스마트한 할 일 관리</p>
+              <p className="text-sm text-muted-foreground">AI가 도와주는 스마트한 할 일 관리</p>
             </div>
           </div>
           
