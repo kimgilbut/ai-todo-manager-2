@@ -1,0 +1,47 @@
+---
+alwaysApply: true
+---
+
+# AI 할 일 관리 프로젝트 구조 및 기술 스택
+
+## 프로젝트 개요
+AI 기반 할 일 관리 웹 애플리케이션으로, Next.js 15 App Router를 기반으로 구축됩니다.
+
+## 기술 스택
+- **프레임워크**: Next.js 15 (App Router)
+- **언어**: TypeScript (strict 모드 권장)
+- **스타일링**: Tailwind CSS
+- **UI 컴포넌트**: Shadcn/ui
+- **백엔드**: Supabase (인증, 데이터베이스)
+- **AI 연동**: AI SDK
+- **린팅**: ESLint (Next.js/TypeScript 규칙)
+
+## 프로젝트 구조
+```
+ai-todo-manager/
+├── app/                    # Next.js 15 App Router 페이지
+│   ├── layout.tsx         # 루트 레이아웃
+│   ├── page.tsx           # 홈페이지
+│   └── globals.css        # 전역 스타일
+├── components/            # 재사용 가능한 컴포넌트
+│   └── ui/               # Shadcn/ui 컴포넌트
+├── hooks/                # 커스텀 React 훅
+├── lib/                  # 유틸리티 함수 및 설정
+├── public/               # 정적 파일
+└── .cursor/rules/        # Cursor 개발 규칙
+```
+
+## 주요 파일 참조
+- 메인 레이아웃: [app/layout.tsx](mdc:app/layout.tsx)
+- 홈페이지: [app/page.tsx](mdc:app/page.tsx)
+- 전역 스타일: [app/globals.css](mdc:app/globals.css)
+- 유틸리티: [lib/utils.ts](mdc:lib/utils.ts)
+- 컴포넌트 설정: [components.json](mdc:components.json)
+- TypeScript 설정: [tsconfig.json](mdc:tsconfig.json)
+- ESLint 설정: [eslint.config.mjs](mdc:eslint.config.mjs)
+
+## 개발 원칙
+1. **사용자 경험 최우선**: 로딩, 빈 상태, 오류 상태 UI를 모두 제공
+2. **성능 최적화**: 상호작용 지연을 최소화
+3. **오류 처리 철저**: 서버/클라이언트 모두 예외 포착
+4. **한글 친화적**: 사용자에게는 한글로 친절한 메시지 제공

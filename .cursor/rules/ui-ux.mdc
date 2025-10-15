@@ -1,0 +1,208 @@
+---
+globs: *.tsx,*.css
+---
+
+# UI/UX 및 사용자 경험 규칙
+
+## 사용자 경험 최우선 원칙
+
+### 로딩 상태 UI
+모든 비동기 작업에 대해 로딩 상태를 제공해야 합니다:
+
+```typescript
+/**
+ * 할 일 목록을 불러오는 컴포넌트
+ */
+const TodoList = () => {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <Spinner className="h-8 w-8" />
+        <span className="ml-2 text-muted-foreground">할 일을 불러오는 중...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {/* 할 일 목록 렌더링 */}
+    </div>
+  );
+};
+```
+
+### 빈 상태 UI
+데이터가 없을 때 사용자에게 명확한 안내를 제공:
+
+```typescript
+/**
+ * 빈 상태를 표시하는 컴포넌트
+ */
+const EmptyState = () => {
+  return (
+    <div className="flex flex-col items-center justify-center p-12 text-center">
+      <div className="mb-4 h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+        <CheckSquare className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <h3 className="text-lg font-semibold mb-2">할 일이 없습니다</h3>
+      <p className="text-muted-foreground mb-4">
+        새로운 할 일을 추가해보세요!
+      </p>
+      <Button>할 일 추가하기</Button>
+    </div>
+  );
+};
+```
+
+### 오류 상태 UI
+사용자에게 친절한 오류 메시지를 한글로 제공:
+
+```typescript
+/**
+ * 오류 상태를 표시하는 컴포넌트
+ */
+const ErrorState = ({ error, onRetry }: { error: Error; onRetry: () => void }) => {
+  return (
+    <div className="flex flex-col items-center justify-center p-12 text-center">
+      <div className="mb-4 h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
+        <AlertCircle className="h-8 w-8 text-destructive" />
+      </div>
+      <h3 className="text-lg font-semibold mb-2 text-destructive">오류가 발생했습니다</h3>
+      <p className="text-muted-foreground mb-4">
+        {error.message || '예상치 못한 오류가 발생했습니다. 다시 시도해주세요.'}
+      </p>
+      <Button variant="outline" onClick={onRetry}>
+        다시 시도
+      </Button>
+    </div>
+  );
+};
+```
+
+## 상호작용 지연 최소화
+
+### 낙관적 업데이트
+사용자 액션에 즉시 반응하여 UI를 업데이트:
+
+```typescript
+/**
+ * 할 일 완료 상태를 토글하는 함수
+ */
+const toggleTodo = async (id: string) => {
+  // 1. 즉시 UI 업데이트 (낙관적 업데이트)
+  setTodos(prev => prev.map(todo => 
+    todo.id === id ? { ...todo, completed: !todo.completed } : todo
+  ));
+
+  try {
+    // 2. 서버에 요청
+    await updateTodo(id, { completed: !todos.find(t => t.id === id)?.completed });
+  } catch (error) {
+    // 3. 실패 시 롤백
+    setTodos(prev => prev.map(todo => 
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ));
+    toast.error('할 일 상태 변경에 실패했습니다.');
+  }
+};
+```
+
+### 스켈레톤 로딩
+초기 로딩 시 스켈레톤 UI 사용:
+
+```typescript
+/**
+ * 할 일 목록 스켈레톤 컴포넌트
+ */
+const TodoListSkeleton = () => {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center space-x-4 p-4">
+          <Skeleton className="h-4 w-4 rounded" />
+          <Skeleton className="h-4 flex-1" />
+          <Skeleton className="h-8 w-16" />
+        </div>
+      ))}
+    </div>
+  );
+};
+```
+
+## Shadcn/ui 컴포넌트 활용
+
+### 일관된 디자인 시스템
+Shadcn/ui 컴포넌트를 우선적으로 사용:
+
+```typescript
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+```
+
+### 접근성 고려
+- 키보드 네비게이션 지원
+- 스크린 리더 호환성
+- 적절한 ARIA 라벨 사용
+
+```typescript
+/**
+ * 접근성을 고려한 할 일 항목 컴포넌트
+ */
+const TodoItem = ({ todo }: { todo: Todo }) => {
+  return (
+    <div 
+      className="flex items-center space-x-4 p-4 rounded-lg border"
+      role="listitem"
+      aria-label={`할 일: ${todo.title}`}
+    >
+      <Checkbox 
+        checked={todo.completed}
+        onCheckedChange={() => toggleTodo(todo.id)}
+        aria-label={todo.completed ? '완료됨' : '미완료'}
+      />
+      <span className={cn(
+        "flex-1",
+        todo.completed && "line-through text-muted-foreground"
+      )}>
+        {todo.title}
+      </span>
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={() => deleteTodo(todo.id)}
+        aria-label="할 일 삭제"
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
+```
+
+## 반응형 디자인
+
+### 모바일 우선 접근
+Tailwind CSS의 반응형 클래스 활용:
+
+```typescript
+/**
+ * 반응형 할 일 목록 컴포넌트
+ */
+const TodoList = () => {
+  return (
+    <div className="w-full max-w-2xl mx-auto p-4 md:p-6">
+      <div className="grid gap-4 md:gap-6">
+        {/* 모바일에서는 1열, 데스크톱에서는 2열 */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* 할 일 항목들 */}
+        </div>
+      </div>
+    </div>
+  );
+};
+```

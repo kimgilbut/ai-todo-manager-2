@@ -1,0 +1,314 @@
+---
+globs: *.ts,*.tsx
+---
+
+# 오류 처리 및 예외 관리 규칙
+
+## 오류 처리 철저 원칙
+
+### 서버 사이드 오류 처리
+API 라우트에서 모든 예외를 포착하고 적절히 처리:
+
+```typescript
+/**
+ * 할 일 생성 API 라우트
+ */
+export async function POST(request: Request) {
+  try {
+    const body = await request.json();
+    
+    // 입력 검증
+    if (!body.title || typeof body.title !== 'string') {
+      return NextResponse.json(
+        { error: '할 일 제목은 필수입니다.' },
+        { status: 400 }
+      );
+    }
+
+    // 데이터베이스 작업
+    const todo = await createTodo({
+      title: body.title,
+      userId: getCurrentUserId(),
+    });
+
+    return NextResponse.json(todo, { status: 201 });
+  } catch (error) {
+    console.error('할 일 생성 오류:', error);
+    
+    // 개발 환경에서는 상세 로그 출력
+    if (process.env.NODE_ENV === 'development') {
+      console.error('상세 오류 정보:', {
+        message: error instanceof Error ? error.message : '알 수 없는 오류',
+        stack: error instanceof Error ? error.stack : undefined,
+        body: await request.clone().json().catch(() => null),
+      });
+    }
+
+    return NextResponse.json(
+      { error: '할 일 생성 중 오류가 발생했습니다. 다시 시도해주세요.' },
+      { status: 500 }
+    );
+  }
+}
+```
+
+### 클라이언트 사이드 오류 처리
+React 컴포넌트에서 오류를 안전하게 처리:
+
+```typescript
+/**
+ * 할 일 목록을 관리하는 컴포넌트
+ */
+const TodoList = () => {
+  const [todos, setTodos] = useState<Todo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  const fetchTodos = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetch('/api/todos');
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '할 일을 불러오는데 실패했습니다.');
+      }
+      
+      const data = await response.json();
+      setTodos(data);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('알 수 없는 오류가 발생했습니다.');
+      setError(error);
+      
+      // 개발 환경에서는 상세 로그 출력
+      if (process.env.NODE_ENV === 'development') {
+        console.error('할 일 목록 조회 오류:', {
+          message: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodos();
+  }, []);
+
+  if (error) {
+    return (
+      <ErrorState 
+        error={error} 
+        onRetry={fetchTodos}
+      />
+    );
+  }
+
+  // 나머지 컴포넌트 렌더링...
+};
+```
+
+## 사용자 친화적 오류 메시지
+
+### 한글 오류 메시지 매핑
+오류 타입에 따른 사용자 친화적 메시지 제공:
+
+```typescript
+/**
+ * 오류 메시지를 사용자 친화적으로 변환하는 유틸리티
+ */
+const getErrorMessage = (error: unknown): string => {
+  if (error instanceof Error) {
+    // 네트워크 오류
+    if (error.message.includes('fetch')) {
+      return '네트워크 연결을 확인해주세요.';
+    }
+    
+    // 인증 오류
+    if (error.message.includes('unauthorized') || error.message.includes('401')) {
+      return '로그인이 필요합니다.';
+    }
+    
+    // 권한 오류
+    if (error.message.includes('forbidden') || error.message.includes('403')) {
+      return '접근 권한이 없습니다.';
+    }
+    
+    // 서버 오류
+    if (error.message.includes('500')) {
+      return '서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요.';
+    }
+    
+    // 기본적으로 전달받은 메시지 사용
+    return error.message;
+  }
+  
+  return '예상치 못한 오류가 발생했습니다.';
+};
+```
+
+### 토스트 알림을 통한 오류 표시
+사용자 액션에 대한 즉각적인 피드백:
+
+```typescript
+/**
+ * 할 일 삭제 함수
+ */
+const deleteTodo = async (id: string) => {
+  try {
+    const response = await fetch(`/api/todos/${id}`, {
+      method: 'DELETE',
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error);
+    }
+
+    // 성공 시 UI 업데이트
+    setTodos(prev => prev.filter(todo => todo.id !== id));
+    toast.success('할 일이 삭제되었습니다.');
+  } catch (error) {
+    const message = getErrorMessage(error);
+    toast.error(message);
+    
+    // 개발 환경에서는 상세 로그
+    if (process.env.NODE_ENV === 'development') {
+      console.error('할 일 삭제 오류:', error);
+    }
+  }
+};
+```
+
+## 오류 경계 (Error Boundary)
+
+### 전역 오류 처리
+React Error Boundary를 통한 예상치 못한 오류 처리:
+
+```typescript
+/**
+ * 전역 오류 경계 컴포넌트
+ */
+class GlobalErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: { children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // 개발 환경에서는 상세 로그 출력
+    if (process.env.NODE_ENV === 'development') {
+      console.error('전역 오류 발생:', {
+        error: error.message,
+        stack: error.stack,
+        componentStack: errorInfo.componentStack,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
+    // 프로덕션에서는 오류 리포팅 서비스로 전송
+    if (process.env.NODE_ENV === 'production') {
+      // Sentry, LogRocket 등 오류 리포팅 서비스 연동
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-screen p-8">
+          <div className="text-center">
+            <h1 className="text-2xl font-bold text-destructive mb-4">
+              오류가 발생했습니다
+            </h1>
+            <p className="text-muted-foreground mb-6">
+              예상치 못한 오류가 발생했습니다. 페이지를 새로고침해주세요.
+            </p>
+            <Button onClick={() => window.location.reload()}>
+              페이지 새로고침
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+```
+
+## 입력 검증 및 오류 처리
+
+### 폼 검증
+사용자 입력에 대한 실시간 검증:
+
+```typescript
+/**
+ * 할 일 생성 폼 컴포넌트
+ */
+const CreateTodoForm = () => {
+  const [title, setTitle] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const validateTitle = (value: string): string | null => {
+    if (!value.trim()) {
+      return '할 일 제목을 입력해주세요.';
+    }
+    if (value.length > 100) {
+      return '할 일 제목은 100자 이하로 입력해주세요.';
+    }
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const validationError = validateTitle(title);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    try {
+      setError(null);
+      await createTodo({ title: title.trim() });
+      setTitle('');
+      toast.success('할 일이 추가되었습니다.');
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <Input
+          value={title}
+          onChange={(e) => {
+            setTitle(e.target.value);
+            setError(null); // 입력 시 오류 메시지 제거
+          }}
+          placeholder="새로운 할 일을 입력하세요..."
+          className={error ? 'border-destructive' : ''}
+        />
+        {error && (
+          <p className="text-sm text-destructive mt-1">{error}</p>
+        )}
+      </div>
+      <Button type="submit" disabled={!title.trim()}>
+        할 일 추가
+      </Button>
+    </form>
+  );
+};
+```

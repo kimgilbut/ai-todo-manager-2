@@ -1,0 +1,118 @@
+---
+globs: *.ts,*.tsx,*.js,*.jsx
+---
+
+# 코딩 스타일 및 TypeScript 규칙
+
+## 컴포넌트 작성 규칙
+
+### 함수형 컴포넌트 사용
+- 모든 React 컴포넌트는 함수형 컴포넌트로 작성
+- 클래스 컴포넌트 사용 금지
+
+### 화살표 함수 사용
+```typescript
+// ✅ 올바른 예시
+const TodoList = () => {
+  return <div>할 일 목록</div>;
+};
+
+// ❌ 잘못된 예시
+function TodoList() {
+  return <div>할 일 목록</div>;
+}
+```
+
+### 파일명 규칙
+- 컴포넌트 파일명은 **파스칼 케이스** 사용
+- 예시: `TodoList.tsx`, `UserProfile.tsx`, `TaskItem.tsx`
+
+## 주석 및 문서화
+
+### 한글 주석 필수
+모든 함수와 컴포넌트 상단에 한 문장 개요를 한글로 작성:
+
+```typescript
+/**
+ * 할 일 목록을 표시하고 관리하는 컴포넌트
+ * @description 사용자가 생성한 할 일들을 리스트 형태로 보여주며, 완료/삭제 기능을 제공합니다.
+ * @returns JSX.Element
+ */
+const TodoList = () => {
+  // 컴포넌트 로직
+};
+```
+
+### JSDoc 한글 작성
+- 모든 함수에 JSDoc 주석을 한글로 작성
+- 매개변수와 반환값에 대한 설명 포함
+
+## TypeScript 규칙
+
+### Strict 모드 사용
+- TypeScript strict 모드 활성화 권장
+- 타입 안정성 최우선
+
+### 타입 정의
+```typescript
+// ✅ 명시적 타입 정의
+interface Todo {
+  id: string;
+  title: string;
+  completed: boolean;
+  createdAt: Date;
+}
+
+// ✅ 제네릭 사용
+const useTodos = <T extends Todo>(): T[] => {
+  // 훅 로직
+};
+```
+
+### ESLint 규칙 준수
+- Next.js/TypeScript ESLint 규칙을 엄격히 준수
+- 린팅 오류는 반드시 수정
+
+## 코드 구조
+
+### Import 순서
+1. React 관련 import
+2. 외부 라이브러리 import
+3. 내부 컴포넌트/유틸리티 import
+4. 타입 import
+
+```typescript
+import React from 'react';
+import { useState, useEffect } from 'react';
+
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+import { Todo } from '@/types/todo';
+import { cn } from '@/lib/utils';
+```
+
+### 컴포넌트 구조
+```typescript
+/**
+ * 컴포넌트 한 줄 설명
+ */
+const ComponentName = () => {
+  // 1. 상태 정의
+  const [state, setState] = useState();
+  
+  // 2. 이벤트 핸들러
+  const handleEvent = () => {
+    // 핸들러 로직
+  };
+  
+  // 3. 렌더링
+  return (
+    <div>
+      {/* JSX 내용 */}
+    </div>
+  );
+};
+
+export default ComponentName;
+```
